@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 
 import { analyzeReplayTimeline } from "@/domain/analysis/heuristics";
 import { renderCoaching } from "@/domain/coaching/renderAdvice";
+import { decodeReplayInput } from "@/domain/replay/decodeReplay";
 import { buildTimeline } from "@/domain/replay/buildTimeline";
 import { parseReplayXml } from "@/domain/replay/parseXml";
 
@@ -38,4 +39,9 @@ export function analyzeReplayXml(xml: string): ReplayAnalysisReport {
     analysis,
     coaching
   };
+}
+
+export function analyzeReplayInput(input: string): ReplayAnalysisReport {
+  const decoded = decodeReplayInput(input);
+  return analyzeReplayXml(decoded.xml);
 }

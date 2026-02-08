@@ -110,6 +110,6 @@ Agents should run lint + tests + build before declaring work complete.
 
 ## 11) Demo Replay Artifact
 
-1. A sanitized real-world demo replay is available at `demo-replays/demo1.bbr`.
-2. This file is approved for agent inspection to improve parser and analysis coverage.
+1. Sanitized real-world demo replays are available in `demo-replays/` (`demo1.bbr`, `demo2.bbr`, `demo3.bbr`).
+2. These files are approved for agent inspection to improve parser and analysis coverage.
 3. Sensitive identifiers (names, gamer/account IDs, lobby/match IDs, and IP addresses) have been anonymized.

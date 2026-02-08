@@ -125,8 +125,9 @@ Acceptance:
 
 ## Replay Fixtures
 
-1. Sanitized demo replay is available at `demo-replays/demo1.bbr`.
-2. Agents can inspect this replay to understand real BB3 replay structure and evolve parsing rules.
+1. Sanitized demo replays are available in `demo-replays/` (`demo1.bbr`, `demo2.bbr`, `demo3.bbr`).
+2. Agents can inspect these replays to understand real BB3 replay structure and evolve parsing rules.
+3. Investigation notes and current code mappings are tracked in `docs/REPLAY_INVESTIGATION.md`.
 
 ## Best Practices for Coding Agents
 

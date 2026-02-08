@@ -21,8 +21,8 @@ Analysis logic is intentionally simple in this first pass and designed to be rep
 
 ## Demo Replay
 
-1. Sanitized demo replay: `demo-replays/demo1.bbr`.
-2. This replay is intended for parser/analysis development and agent inspection.
+1. Sanitized demo replays: `demo-replays/demo1.bbr`, `demo-replays/demo2.bbr`, `demo-replays/demo3.bbr`.
+2. These replays are intended for parser/analysis development and agent inspection.
 3. Sensitive values have been anonymized (names, gamer/account IDs, lobby/match IDs, IP addresses).
 
 ## Tech Stack

@@ -1,6 +1,7 @@
 import { XMLParser, XMLValidator } from "fast-xml-parser";
 import { z } from "zod";
 
+import { extractStructuredTurnsFromReplayXml } from "@/domain/replay/extractStructuredTurns";
 import { ReplayValidationError } from "@/lib/errors";
 import type { ReplayModel, ReplayTeam, ReplayTurn } from "@/domain/replay/types";
 
@@ -173,6 +174,12 @@ function normalizeTurn(rawTurn: unknown, index: number): ReplayTurn {
   return {
     turnNumber,
     teamId: teamId ? String(teamId) : undefined,
+    gamerId: undefined,
+    ballCarrierPlayerId: undefined,
+    possibleTurnover: false,
+    endTurnReason: undefined,
+    finishingTurnType: undefined,
+    events: [],
     actionTexts,
     eventCount: estimateEventCount(turn),
     raw: rawTurn
@@ -221,6 +228,7 @@ export function parseReplayXml(xml: string): ReplayModel {
 
   const rootTag = Object.keys(parsed)[0] ?? "Replay";
   const rootNode = parsed[rootTag] ?? parsed;
+  const structuredTurns = extractStructuredTurnsFromReplayXml(validatedXml);
 
   const teams = collectCandidates(
     rootNode,
@@ -232,15 +240,18 @@ export function parseReplayXml(xml: string): ReplayModel {
     TEAM_KEYS
   ).map(normalizeTeam);
 
-  const turns = collectCandidates(
-    rootNode,
-    [
-      ["Turns", "Turn"],
-      ["GameTurns", "GameTurn"],
-      ["TurnHistory", "Turn"]
-    ],
-    TURN_KEYS
-  ).map(normalizeTurn);
+  const turns =
+    structuredTurns.length > 0
+      ? structuredTurns
+      : collectCandidates(
+          rootNode,
+          [
+            ["Turns", "Turn"],
+            ["GameTurns", "GameTurn"],
+            ["TurnHistory", "Turn"]
+          ],
+          TURN_KEYS
+        ).map(normalizeTurn);
 
   return {
     matchId: resolveMatchId(rootNode),

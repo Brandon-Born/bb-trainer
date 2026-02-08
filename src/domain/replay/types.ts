@@ -4,9 +4,38 @@ export type ReplayTeam = {
   coach?: string;
 };
 
+export type ReplayEventType =
+  | "block"
+  | "blitz"
+  | "dodge"
+  | "reroll"
+  | "casualty"
+  | "ball_state"
+  | "turnover";
+
+export type ReplayEvent = {
+  type: ReplayEventType;
+  sourceTag: string;
+  playerId?: string;
+  targetId?: string;
+  teamId?: string;
+  gamerId?: string;
+  actionCode?: number;
+  stepType?: number;
+  reasonCode?: number;
+  finishingTurnType?: number;
+  payload?: Record<string, unknown>;
+};
+
 export type ReplayTurn = {
   turnNumber: number;
   teamId?: string;
+  gamerId?: string;
+  ballCarrierPlayerId?: string;
+  possibleTurnover: boolean;
+  endTurnReason?: number;
+  finishingTurnType?: number;
+  events: ReplayEvent[];
   actionTexts: string[];
   eventCount: number;
   raw: unknown;

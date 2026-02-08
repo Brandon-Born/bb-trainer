@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import { ReplayValidationError } from "@/lib/errors";
 import { logger } from "@/lib/logger";
 import { appConfig } from "@/lib/config";
-import { analyzeReplayXml } from "@/server/services/analyzeReplay";
+import { analyzeReplayInput } from "@/server/services/analyzeReplay";
 
 export const runtime = "nodejs";
 
@@ -25,7 +25,7 @@ export async function POST(request: Request) {
   const xml = await replayFile.text();
 
   try {
-    const report = analyzeReplayXml(xml);
+    const report = analyzeReplayInput(xml);
     return NextResponse.json({ report });
   } catch (error) {
     if (error instanceof ReplayValidationError) {
