@@ -58,6 +58,7 @@ export type ReplayModel = {
   rootTag: string;
   replayVersion?: string;
   teams: ReplayTeam[];
+  analysisTeamId?: string;
   playerNamesByTeamAndId?: Record<string, string>;
   playerNamesById?: Record<string, string>;
   turns: ReplayTurn[];
