@@ -70,4 +70,81 @@ describe("parseReplayXml", () => {
   it("throws on invalid XML", () => {
     expect(() => parseReplayXml("<Replay>")).toThrow();
   });
+
+  it("keeps team-specific player name links when player ids overlap", () => {
+    const xml = `
+      <Replay>
+        <NotificationGameJoined>
+          <GameInfos>
+            <GamersInfos>
+              <GamerInfos>
+                <Slot>0</Slot>
+                <Name>Q29hY2ggQQ==</Name>
+                <Roster>
+                  <Name>VGVhbSBB</Name>
+                  <Team>
+                    <TeamId>0</TeamId>
+                  </Team>
+                </Roster>
+              </GamerInfos>
+              <GamerInfos>
+                <Slot>1</Slot>
+                <Name>Q29hY2ggQg==</Name>
+                <Roster>
+                  <Name>VGVhbSBC</Name>
+                  <Team>
+                    <TeamId>1</TeamId>
+                  </Team>
+                </Roster>
+              </GamerInfos>
+            </GamersInfos>
+          </GameInfos>
+          <InitialBoardState>
+            <ListTeams>
+              <TeamState>
+                <Data>
+                  <TeamId>0</TeamId>
+                </Data>
+                <ListPitchPlayers>
+                  <PlayerState>
+                    <Id>9</Id>
+                    <Data>
+                      <TeamId>0</TeamId>
+                      <Name>QWxwaGE=</Name>
+                    </Data>
+                  </PlayerState>
+                </ListPitchPlayers>
+              </TeamState>
+              <TeamState>
+                <Data>
+                  <TeamId>1</TeamId>
+                </Data>
+                <ListPitchPlayers>
+                  <PlayerState>
+                    <Id>9</Id>
+                    <Data>
+                      <TeamId>1</TeamId>
+                      <Name>QmV0YQ==</Name>
+                    </Data>
+                  </PlayerState>
+                </ListPitchPlayers>
+              </TeamState>
+            </ListTeams>
+          </InitialBoardState>
+        </NotificationGameJoined>
+        <Turns>
+          <Turn>
+            <number>1</number>
+            <teamId>0</teamId>
+          </Turn>
+        </Turns>
+      </Replay>
+    `;
+
+    const replay = parseReplayXml(xml);
+
+    expect(replay.playerNamesByTeamAndId?.["0:9"]).toBe("Alpha");
+    expect(replay.playerNamesByTeamAndId?.["1:9"]).toBe("Beta");
+    expect(replay.playerNamesById?.["9"]).toBeUndefined();
+  });
 });

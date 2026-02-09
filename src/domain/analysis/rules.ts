@@ -59,41 +59,51 @@ function countEvents(turn: ReplayTurn, eventType: ReplayTurn["events"][number]["
   return turn.events.filter((event) => event.type === eventType).length;
 }
 
-function playerNameFromId(replay: ReplayModel, playerId: string | undefined): string | undefined {
+function playerNameFromId(replay: ReplayModel, playerId: string | undefined, teamIdHint?: string): string | undefined {
   if (!playerId) {
     return undefined;
+  }
+
+  if (teamIdHint) {
+    const byTeamKey = `${teamIdHint}:${playerId}`;
+    const byTeamName = replay.playerNamesByTeamAndId?.[byTeamKey];
+    if (byTeamName) {
+      return byTeamName;
+    }
   }
 
   return replay.playerNamesById?.[playerId];
 }
 
-function playerDisplayName(replay: ReplayModel, playerId: string | undefined): string {
+function playerDisplayName(replay: ReplayModel, playerId: string | undefined, teamIdHint?: string): string {
   if (!playerId) {
     return "a player";
   }
 
-  return playerNameFromId(replay, playerId) ?? `Player ${playerId}`;
+  return playerNameFromId(replay, playerId, teamIdHint) ?? `Player ${playerId}`;
 }
 
-function describeReplayEvent(replay: ReplayModel, event: ReplayEvent | undefined): string {
+function describeReplayEvent(replay: ReplayModel, event: ReplayEvent | undefined, teamIdHint?: string): string {
   if (!event) {
     return "a risky play";
   }
 
+  const eventTeamHint = event.teamId ?? teamIdHint;
+
   if (event.type === "dodge") {
-    return `${playerDisplayName(replay, event.playerId)} attempted a dodge`;
+    return `${playerDisplayName(replay, event.playerId, eventTeamHint)} attempted a dodge`;
   }
 
   if (event.type === "block") {
-    return `${playerDisplayName(replay, event.playerId)} attempted a block`;
+    return `${playerDisplayName(replay, event.playerId, eventTeamHint)} attempted a block`;
   }
 
   if (event.type === "blitz") {
-    return `${playerDisplayName(replay, event.playerId)} used a blitz action`;
+    return `${playerDisplayName(replay, event.playerId, eventTeamHint)} used a blitz action`;
   }
 
   if (event.type === "foul") {
-    return `${playerDisplayName(replay, event.playerId)} attempted a foul`;
+    return `${playerDisplayName(replay, event.playerId, eventTeamHint)} attempted a foul`;
   }
 
   if (event.type === "ball_state") {
@@ -101,7 +111,26 @@ function describeReplayEvent(replay: ReplayModel, event: ReplayEvent | undefined
   }
 
   const tagLabel = SOURCE_TAG_LABELS[event.sourceTag] ?? "a risky sequence";
-  return `${playerDisplayName(replay, event.playerId)} took ${tagLabel}`;
+  return `${playerDisplayName(replay, event.playerId, eventTeamHint)} took ${tagLabel}`;
+}
+
+function isPlayerOnTeam(replay: ReplayModel, teamId: string | undefined, playerId: string | undefined): boolean | undefined {
+  if (!teamId || !playerId) {
+    return undefined;
+  }
+
+  const byTeamMap = replay.playerNamesByTeamAndId ?? {};
+  const teamKey = `${teamId}:${playerId}`;
+  if (teamKey in byTeamMap) {
+    return true;
+  }
+
+  const hasPlayerInAnyTeam = Object.keys(byTeamMap).some((key) => key.endsWith(`:${playerId}`));
+  if (hasPlayerInAnyTeam) {
+    return false;
+  }
+
+  return undefined;
 }
 
 function toEvidenceFromTurn(turn: ReplayTurn, maxItems = 3): AnalysisFinding["evidence"] {
@@ -151,7 +180,7 @@ export function evaluateTurnoverCause(replay: ReplayModel, context: TeamContext)
       turn.events.find((event) => event.type === "foul") ??
       turn.events.find((event) => event.type === "ball_state");
 
-    const happened = describeReplayEvent(replay, likelyCauseEvent);
+    const happened = describeReplayEvent(replay, likelyCauseEvent, turn.teamId);
 
     findings.push({
       id: findingId("turnover-cause", turn.turnNumber),
@@ -274,15 +303,39 @@ export function evaluateBallSafety(replay: ReplayModel, context: TeamContext): A
 
   for (const turn of replay.turns) {
     if (turn.ballCarrierPlayerId && previousCarrier && turn.ballCarrierPlayerId !== previousCarrier) {
-      const previousName = playerDisplayName(replay, previousCarrier);
-      const nextName = playerDisplayName(replay, turn.ballCarrierPlayerId);
+      const previousCarrierOnTeam = isPlayerOnTeam(replay, turn.teamId, previousCarrier);
+      const currentCarrierOnTeam = isPlayerOnTeam(replay, turn.teamId, turn.ballCarrierPlayerId);
+
+      if (previousCarrierOnTeam === false && currentCarrierOnTeam === true) {
+        previousCarrier = turn.ballCarrierPlayerId;
+        continue;
+      }
+
+      const previousName = playerDisplayName(
+        replay,
+        previousCarrier,
+        previousCarrierOnTeam === false ? undefined : turn.teamId
+      );
+      const nextName = playerDisplayName(
+        replay,
+        turn.ballCarrierPlayerId,
+        currentCarrierOnTeam === false ? undefined : turn.teamId
+      );
+
+      const title =
+        previousCarrierOnTeam === true && currentCarrierOnTeam === false
+          ? `Turn ${turn.turnNumber}: opponent took the ball from ${previousName}`
+          : `Turn ${turn.turnNumber}: ball moved from ${previousName} to ${nextName}`;
 
       findings.push({
         id: findingId("ball-safety", turn.turnNumber),
-        severity: "medium",
+        severity: previousCarrierOnTeam === true && currentCarrierOnTeam === false ? "high" : "medium",
         category: "ball_safety",
-        title: `Turn ${turn.turnNumber}: ball moved from ${previousName} to ${nextName}`,
-        detail: "The ball moved to a new player. This can be risky if that player is not well protected.",
+        title,
+        detail:
+          previousCarrierOnTeam === true && currentCarrierOnTeam === false
+            ? "You lost control of the ball between your turns."
+            : "The ball moved to a new player. This can be risky if that player is not well protected.",
         recommendation: contextRecommendation(context, {
           offense: "Before moving the ball, make sure the new carrier has support nearby.",
           defense: "If you steal the ball, secure it with support before making extra risky plays.",
@@ -315,6 +368,11 @@ export function evaluateCageSafety(replay: ReplayModel, context: TeamContext): A
       continue;
     }
 
+    const carrierOnActiveTeam = isPlayerOnTeam(replay, turn.teamId, turn.ballCarrierPlayerId);
+    if (carrierOnActiveTeam === false) {
+      continue;
+    }
+
     const supportActions = countEvents(turn, "block") + countEvents(turn, "blitz");
     const riskyActions = countEvents(turn, "dodge") + countEvents(turn, "foul");
 
@@ -326,7 +384,7 @@ export function evaluateCageSafety(replay: ReplayModel, context: TeamContext): A
       id: findingId("cage-safety", turn.turnNumber),
       severity: turn.possibleTurnover ? "high" : "medium",
       category: "cage_safety",
-      title: `Turn ${turn.turnNumber}: ${playerDisplayName(replay, turn.ballCarrierPlayerId)} looked exposed`,
+      title: `Turn ${turn.turnNumber}: ${playerDisplayName(replay, turn.ballCarrierPlayerId, turn.teamId)} looked exposed`,
       detail: "You had the ball but made risky plays without enough protection actions first.",
       recommendation: contextRecommendation(context, {
         offense: "Build a simple cage or screen around the ball before you dodge or foul.",
@@ -406,7 +464,7 @@ export function evaluateBlitzValue(replay: ReplayModel, context: TeamContext): A
       id: findingId("blitz-value", turn.turnNumber),
       severity: turn.possibleTurnover ? "high" : "medium",
       category: "blitz_value",
-      title: `Turn ${turn.turnNumber}: ${playerDisplayName(replay, blitzEvent?.playerId)} blitz gave low value`,
+      title: `Turn ${turn.turnNumber}: ${playerDisplayName(replay, blitzEvent?.playerId, turn.teamId)} blitz gave low value`,
       detail:
         turn.possibleTurnover
           ? "The blitz was followed by a failed sequence and your turn ended early."
@@ -452,7 +510,7 @@ export function evaluateFoulTiming(replay: ReplayModel, context: TeamContext): A
       id: findingId("foul-timing", turn.turnNumber),
       severity: turn.possibleTurnover ? "high" : "medium",
       category: "foul_timing",
-      title: `Turn ${turn.turnNumber}: ${playerDisplayName(replay, foulEvent?.playerId)} foul timing was risky`,
+      title: `Turn ${turn.turnNumber}: ${playerDisplayName(replay, foulEvent?.playerId, turn.teamId)} foul timing was risky`,
       detail: turn.possibleTurnover ? "The foul sequence was part of a turn that ended early." : "You fouled before securing the safe parts of your turn.",
       recommendation: contextRecommendation(context, {
         offense: "On offense, foul after the ball is safe and your screen is set.",
@@ -562,6 +620,11 @@ export function evaluateScoringWindow(replay: ReplayModel, context: TeamContext)
       continue;
     }
 
+    const carrierOnActiveTeam = isPlayerOnTeam(replay, turn.teamId, turn.ballCarrierPlayerId);
+    if (carrierOnActiveTeam === false) {
+      continue;
+    }
+
     const riskyLateActions = countEvents(turn, "dodge") + countEvents(turn, "blitz") + countEvents(turn, "foul");
     const scoredOrEndOfHalf = turn.endTurnReason === 4;
 
@@ -574,7 +637,7 @@ export function evaluateScoringWindow(replay: ReplayModel, context: TeamContext)
       severity: turn.possibleTurnover ? "high" : "medium",
       category: "scoring_window",
       title: `Turn ${turn.turnNumber}: scoring window management was risky`,
-      detail: `${playerDisplayName(replay, turn.ballCarrierPlayerId)} had the ball in late turns, but the sequence stayed high risk.`,
+      detail: `${playerDisplayName(replay, turn.ballCarrierPlayerId, turn.teamId)} had the ball in late turns, but the sequence stayed high risk.`,
       recommendation: "In late turns, choose the shortest safe route to score or fully secure the ball for next turn.",
       turnNumber: turn.turnNumber,
       evidence: [

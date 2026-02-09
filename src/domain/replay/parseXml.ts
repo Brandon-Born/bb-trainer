@@ -331,8 +331,22 @@ function normalizePlayerName(raw: unknown): string | undefined {
   return decoded;
 }
 
-function extractPlayerNames(rootNode: unknown): Record<string, string> {
-  const result: Record<string, string> = {};
+function normalizeTeamId(raw: unknown): string | undefined {
+  if (raw === undefined || raw === null) {
+    return undefined;
+  }
+
+  const value = String(raw).trim();
+  return value === "" ? undefined : value;
+}
+
+function extractPlayerNames(rootNode: unknown): {
+  playerNamesByTeamAndId: Record<string, string>;
+  playerNamesById: Record<string, string>;
+} {
+  const playerNamesByTeamAndId: Record<string, string> = {};
+  const playerNamesById: Record<string, string> = {};
+  const conflictingGlobalIds = new Set<string>();
   const teamStates = toArray(valueAtPath(rootNode, ["NotificationGameJoined", "InitialBoardState", "ListTeams", "TeamState"]));
 
   for (const state of teamStates) {
@@ -340,6 +354,7 @@ function extractPlayerNames(rootNode: unknown): Record<string, string> {
       continue;
     }
 
+    const stateTeamId = normalizeTeamId(valueAtPath(state, ["Data", "TeamId"]) ?? state.TeamId ?? state.Side);
     const playerStates = toArray(valueAtPath(state, ["ListPitchPlayers", "PlayerState"]));
     for (const playerState of playerStates) {
       if (!isRecord(playerState)) {
@@ -348,14 +363,39 @@ function extractPlayerNames(rootNode: unknown): Record<string, string> {
 
       const playerId = playerState.Id ?? playerState.PlayerId ?? playerState.id;
       const playerName = normalizePlayerName(valueAtPath(playerState, ["Data", "Name"]) ?? playerState.Name);
+      const playerTeamId = normalizeTeamId(valueAtPath(playerState, ["Data", "TeamId"]) ?? playerState.TeamId ?? stateTeamId);
 
-      if (playerId !== undefined && playerName) {
-        result[String(playerId)] = playerName;
+      if (playerId === undefined || !playerName) {
+        continue;
+      }
+
+      const playerIdText = String(playerId);
+
+      if (playerTeamId) {
+        playerNamesByTeamAndId[`${playerTeamId}:${playerIdText}`] = playerName;
+      }
+
+      if (conflictingGlobalIds.has(playerIdText)) {
+        continue;
+      }
+
+      const existingGlobal = playerNamesById[playerIdText];
+      if (!existingGlobal) {
+        playerNamesById[playerIdText] = playerName;
+        continue;
+      }
+
+      if (existingGlobal !== playerName) {
+        delete playerNamesById[playerIdText];
+        conflictingGlobalIds.add(playerIdText);
       }
     }
   }
 
-  return result;
+  return {
+    playerNamesByTeamAndId,
+    playerNamesById
+  };
 }
 
 function normalizeTeams(rawTeams: unknown[]): ReplayTeam[] {
@@ -429,7 +469,7 @@ export function parseReplayXml(xml: string): ReplayModel {
   const teamsFromGameInfos = extractTeamsFromGameInfos(rootNode);
   const fallbackTeams = normalizeTeams(collectTeamCandidates(rootNode));
   const teams = teamsFromGameInfos.length >= 2 ? teamsFromGameInfos : fallbackTeams;
-  const playerNamesById = extractPlayerNames(rootNode);
+  const playerNames = extractPlayerNames(rootNode);
 
   const turns =
     structured.turns.length > 0
@@ -449,7 +489,8 @@ export function parseReplayXml(xml: string): ReplayModel {
     rootTag,
     replayVersion,
     teams,
-    playerNamesById,
+    playerNamesByTeamAndId: playerNames.playerNamesByTeamAndId,
+    playerNamesById: playerNames.playerNamesById,
     turns,
     unknownCodes: structured.unknownCodes,
     raw: rootNode
