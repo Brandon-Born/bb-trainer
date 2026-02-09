@@ -33,12 +33,12 @@ export function evaluateTurnoverCause(replay: ReplayModel): AnalysisFinding[] {
       id: findingId("turnover-cause", turn.turnNumber),
       severity: "high",
       category: "turnover_cause",
-      title: `Turn ${turn.turnNumber}: turnover-risk turn ended non-manually`,
+      title: `Turn ${turn.turnNumber} ended early`,
       detail:
         likelyCauseEvent !== undefined
-          ? `Turn appears to have ended due to high-variance sequence near ${likelyCauseEvent.sourceTag}.`
-          : "Turn appears to have ended due to a turnover condition.",
-      recommendation: "Complete low-risk positioning and ball-safety actions before high-variance rolls.",
+          ? `Your turn stopped after a risky play around ${likelyCauseEvent.sourceTag}.`
+          : "Your turn stopped before you finished your plan.",
+      recommendation: "Make your safest moves first, then do risky dice actions at the end of the turn.",
       turnNumber: turn.turnNumber,
       evidence: [
         {
@@ -74,9 +74,9 @@ export function evaluateActionOrdering(replay: ReplayModel): AnalysisFinding[] {
       id: findingId("action-order", turn.turnNumber),
       severity: "medium",
       category: "action_ordering",
-      title: `Turn ${turn.turnNumber}: risky action ordering`,
-      detail: "Risky actions were taken before stabilizing ball state or critical board position.",
-      recommendation: "Start with guaranteed positioning and ball protection, then commit to blocks/blitz/dodges.",
+      title: `Turn ${turn.turnNumber}: risky moves came too early`,
+      detail: "You took risky actions before securing the ball or key player positions.",
+      recommendation: "Start with safe movement and ball protection, then do blocks, blitzes, and dodges.",
       turnNumber: turn.turnNumber,
       evidence: turn.events.slice(0, 3).map((event) => ({
         eventType: event.type,
@@ -107,9 +107,9 @@ export function evaluateRerollTiming(replay: ReplayModel): AnalysisFinding[] {
       id: findingId("reroll-timing", turn.turnNumber),
       severity: "medium",
       category: "reroll_timing",
-      title: `Turn ${turn.turnNumber}: reroll pressure detected`,
-      detail: "Reroll usage occurred during a high-risk action sequence, which may indicate avoidable variance.",
-      recommendation: "Reduce early-turn variance before consuming rerolls to preserve recovery options.",
+      title: `Turn ${turn.turnNumber}: rerolls were under pressure`,
+      detail: "You had to spend rerolls during risky actions, which can leave you exposed later in the turn.",
+      recommendation: "Use safe actions first so you can save rerolls for the most important dice rolls.",
       turnNumber: turn.turnNumber,
       evidence: rerollEvents.slice(0, 2).map((event) => ({
         eventType: event.type,
@@ -132,9 +132,9 @@ export function evaluateBallSafety(replay: ReplayModel): AnalysisFinding[] {
         id: findingId("ball-safety", turn.turnNumber),
         severity: "medium",
         category: "ball_safety",
-        title: `Turn ${turn.turnNumber}: ball carrier transition`,
-        detail: "Ball carrier changed across turns, increasing exposure if not supported by safe positioning.",
-        recommendation: "Plan carrier transfers only after screening and tackle-zone control are secured.",
+        title: `Turn ${turn.turnNumber}: ball carrier changed`,
+        detail: "The ball moved to a new player. This can be risky if that player is not well protected.",
+        recommendation: "Before handing off or moving the ball, make sure nearby players can protect the new carrier.",
         turnNumber: turn.turnNumber,
         evidence: [
           {
@@ -159,5 +159,5 @@ export function findingsToTurnAdvice(findings: AnalysisFinding[]): TurnAdvice[] 
     .filter((finding) => finding.turnNumber !== undefined)
     .map(toTurnAdvice)
     .sort((a, b) => a.turnNumber - b.turnNumber)
-    .slice(0, 32);
+    .slice(0, 16);
 }

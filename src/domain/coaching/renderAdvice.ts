@@ -28,7 +28,7 @@ export function renderCoaching(analysis: AnalysisResult): CoachingReport {
   });
 
   if (priorities.length === 0) {
-    priorities.push("No major issues detected by current ruleset. Expand heuristic coverage for deeper review.");
+    priorities.push("No major mistakes were found in this replay. Keep practicing the same safe turn order.");
   }
 
   const turnByTurn = analysis.turnAdvice.slice(0, 32).map((advice) => ({

@@ -14,7 +14,6 @@ const parser = new XMLParser({
   trimValues: true
 });
 
-const TEAM_KEYS = ["Team", "Side", "TeamState"];
 const TURN_KEYS = ["Turn", "GameTurn", "PlayerTurn"];
 
 type RecordLike = Record<string, unknown>;
@@ -90,15 +89,34 @@ function dedupeUnknown(input: unknown[]): unknown[] {
 function normalizeTeam(rawTeam: unknown, index: number): ReplayTeam {
   const team = isRecord(rawTeam) ? rawTeam : {};
 
-  const id = String(team.id ?? team.teamId ?? team.TeamId ?? team.ID ?? team.SideId ?? `team-${index + 1}`);
-  const name = String(team.name ?? team.teamName ?? team.TeamName ?? team.Name ?? team.SideName ?? `Team ${index + 1}`);
+  const id = String(team.id ?? team.teamId ?? team.TeamId ?? team.ID ?? team.SideId ?? team.GamerSlot ?? `team-${index + 1}`);
+  const name = decodeReadableText(String(team.name ?? team.teamName ?? team.TeamName ?? team.Name ?? team.SideName ?? `Team ${index + 1}`));
   const coachValue = team.coach ?? team.Coach ?? team.CoachName;
 
   return {
     id,
     name,
-    coach: coachValue ? String(coachValue) : undefined
+    coach: coachValue ? decodeReadableText(String(coachValue)) : undefined
   };
+}
+
+function decodeReadableText(value: string): string {
+  const normalized = value.trim();
+
+  if (!/^[A-Za-z0-9+/]+={0,2}$/.test(normalized) || normalized.length % 4 !== 0) {
+    return value;
+  }
+
+  try {
+    const decoded = Buffer.from(normalized, "base64").toString("utf8");
+    if (/^[\x20-\x7E\t\r\n]+$/.test(decoded)) {
+      return decoded;
+    }
+  } catch {
+    return value;
+  }
+
+  return value;
 }
 
 function normalizeToken(raw: string): string[] {
@@ -194,15 +212,135 @@ function collectCandidates(rootNode: unknown, paths: string[][], keys: string[])
   return dedupeUnknown([...pathValues, ...walkValues]);
 }
 
+function collectTeamCandidates(rootNode: unknown): unknown[] {
+  const strictPathValues = dedupeUnknown([
+    ...toArray(valueAtPath(rootNode, ["NotificationGameJoined", "InitialBoardState", "ListTeams", "TeamState"])),
+    ...toArray(valueAtPath(rootNode, ["Teams", "Team"])),
+    ...toArray(valueAtPath(rootNode, ["Sides", "Side"])),
+    ...toArray(valueAtPath(rootNode, ["TeamStates", "TeamState"]))
+  ]);
+
+  if (strictPathValues.length > 0) {
+    return strictPathValues;
+  }
+
+  const joinedNode = valueAtPath(rootNode, ["NotificationGameJoined"]);
+  if (joinedNode) {
+    return dedupeUnknown([...walkCollect(joinedNode, "Side"), ...walkCollect(joinedNode, "TeamState"), ...walkCollect(joinedNode, "Team")]);
+  }
+
+  return dedupeUnknown([...walkCollect(rootNode, "Side"), ...walkCollect(rootNode, "TeamState"), ...walkCollect(rootNode, "Team")]);
+}
+
+function isGenericTeamName(name: string): boolean {
+  return /^Team \d+$/i.test(name.trim());
+}
+
+function isNumericLabel(value: string): boolean {
+  return /^\d+$/.test(value.trim());
+}
+
+function chooseTeamName(nameCandidate: string, coachCandidate: string | undefined, index: number): string {
+  const cleanName = nameCandidate.trim();
+
+  if (cleanName !== "" && !isGenericTeamName(cleanName) && !isNumericLabel(cleanName)) {
+    return cleanName;
+  }
+
+  if (coachCandidate && !isNumericLabel(coachCandidate)) {
+    return `Team ${index + 1}`;
+  }
+
+  return `Team ${index + 1}`;
+}
+
+function chooseCoachName(coachCandidate: string): string | undefined {
+  const cleanCoach = coachCandidate.trim();
+
+  if (cleanCoach === "" || isNumericLabel(cleanCoach)) {
+    return undefined;
+  }
+
+  return cleanCoach;
+}
+
+function dedupeTeams(teams: ReplayTeam[]): ReplayTeam[] {
+  const dedupedById = new Map<string, ReplayTeam>();
+
+  for (const team of teams) {
+    const existing = dedupedById.get(team.id);
+    if (!existing) {
+      dedupedById.set(team.id, team);
+      continue;
+    }
+
+    if (isGenericTeamName(existing.name) && !isGenericTeamName(team.name)) {
+      dedupedById.set(team.id, team);
+      continue;
+    }
+
+    if (!existing.coach && team.coach) {
+      dedupedById.set(team.id, team);
+    }
+  }
+
+  return Array.from(dedupedById.values());
+}
+
+function extractTeamsFromGameInfos(rootNode: unknown): ReplayTeam[] {
+  const gamers = toArray(valueAtPath(rootNode, ["NotificationGameJoined", "GameInfos", "GamersInfos", "GamerInfos"]));
+
+  if (gamers.length === 0) {
+    return [];
+  }
+
+  const teams = gamers.flatMap((rawGamer, index) => {
+    if (!isRecord(rawGamer)) {
+      return [];
+    }
+
+    const roster = isRecord(rawGamer.Roster) ? rawGamer.Roster : {};
+    const rosterTeam = isRecord(roster.Team) ? roster.Team : {};
+    const rawId = rosterTeam.TeamId ?? rawGamer.TeamId ?? roster.TeamId ?? rawGamer.Slot ?? index;
+    const teamNameCandidate = decodeReadableText(String(roster.Name ?? rosterTeam.Name ?? ""));
+    const coachNameCandidate = decodeReadableText(String(rawGamer.Name ?? roster.Coach ?? rosterTeam.Coach ?? ""));
+    const coachName = chooseCoachName(coachNameCandidate);
+
+    return [
+      {
+        id: String(rawId),
+        name: chooseTeamName(teamNameCandidate, coachName, index),
+        coach: coachName
+      } satisfies ReplayTeam
+    ];
+  });
+
+  return dedupeTeams(teams);
+}
+
+function normalizeTeams(rawTeams: unknown[]): ReplayTeam[] {
+  const normalized = rawTeams.map(normalizeTeam);
+  const deduped = dedupeTeams(normalized);
+  const named = deduped.filter((team) => !isGenericTeamName(team.name));
+
+  if (named.length >= 2) {
+    return named;
+  }
+
+  return deduped;
+}
+
 function resolveMatchId(rootNode: unknown): string {
   const matchCandidate =
+    valueAtPath(rootNode, ["NotificationGameJoined", "GameInfos", "Competition", "CompetitionInfos", "MatchId"]) ??
+    valueAtPath(rootNode, ["NotificationGameJoined", "GameInfos", "Id"]) ??
     valueAtPath(rootNode, ["MatchId"]) ??
     valueAtPath(rootNode, ["matchId"]) ??
     valueAtPath(rootNode, ["Metadata", "MatchId"]) ??
     valueAtPath(rootNode, ["Game", "Id"]) ??
     valueAtPath(rootNode, ["id"]);
 
-  return matchCandidate ? String(matchCandidate) : `match-${Date.now()}`;
+  return matchCandidate ? decodeReadableText(String(matchCandidate)) : `match-${Date.now()}`;
 }
 
 function resolveReplayVersion(rootNode: unknown): string | undefined {
@@ -248,16 +386,9 @@ export function parseReplayXml(xml: string): ReplayModel {
   validateReplayVersion(replayVersion);
 
   const structured = extractStructuredTurnsFromReplayXml(validatedXml);
-
-  const teams = collectCandidates(
-    rootNode,
-    [
-      ["Teams", "Team"],
-      ["Sides", "Side"],
-      ["TeamStates", "TeamState"]
-    ],
-    TEAM_KEYS
-  ).map(normalizeTeam);
+  const teamsFromGameInfos = extractTeamsFromGameInfos(rootNode);
+  const fallbackTeams = normalizeTeams(collectTeamCandidates(rootNode));
+  const teams = teamsFromGameInfos.length >= 2 ? teamsFromGameInfos : fallbackTeams;
 
   const turns =
     structured.turns.length > 0

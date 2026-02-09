@@ -23,4 +23,16 @@ describe("analyzeReplayXml", () => {
     expect(report.analysis.metrics.totalTurns).toBe(2);
     expect(report.coaching.priorities.length).toBeGreaterThan(0);
   });
+
+  it("builds team-specific reports with coach turn numbers", () => {
+    const report = analyzeReplayXml(readFixture("sample-basic.xml"));
+
+    expect(report.teamReports.length).toBeGreaterThan(0);
+    for (const teamReport of report.teamReports) {
+      const turns = teamReport.coaching.turnByTurn.map((row) => row.turnNumber);
+      if (turns.length > 0) {
+        expect(Math.max(...turns)).toBeLessThanOrEqual(16);
+      }
+    }
+  });
 });

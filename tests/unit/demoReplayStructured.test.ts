@@ -21,6 +21,9 @@ describe("demo replay structured extraction", () => {
       const replay = parseReplayXml(decoded.xml);
 
       expect(replay.turns.length).toBeGreaterThan(20);
+      expect(replay.teams.length).toBeGreaterThanOrEqual(2);
+      expect(replay.teams.slice(0, 2).every((team) => team.id !== "")).toBe(true);
+      expect(replay.teams.slice(0, 2).every((team) => !/^\d+$/.test(team.name))).toBe(true);
 
       const allEvents = replay.turns.flatMap((turn) => turn.events);
       const eventTypes = new Set(allEvents.map((event) => event.type));
@@ -50,6 +53,11 @@ describe("demo replay structured extraction", () => {
       expect(report.replay.turnCount).toBeGreaterThan(20);
       expect(report.analysis.metrics.totalTurns).toBe(report.replay.turnCount);
       expect(report.coaching.priorities.length).toBeGreaterThan(0);
+      expect(report.teamReports.length).toBeGreaterThanOrEqual(2);
+      expect(report.teamReports.every((teamReport) => teamReport.analysis.metrics.totalTurns > 0)).toBe(true);
+      const firstTeam = report.teamReports[0];
+      expect(firstTeam).toBeDefined();
+      expect(firstTeam!.coaching.turnByTurn.every((turn) => turn.turnNumber <= 16)).toBe(true);
     });
   }
 
