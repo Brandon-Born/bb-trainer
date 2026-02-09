@@ -4,6 +4,7 @@ const KEYWORD_PATTERNS = {
   turnover: /\bturn ?over\b/g,
   reroll: /\bre ?-?roll\b|\breroll\b/g,
   blitz: /\bblitz(?:ed|ing|es)?\b/g,
+  foul: /\bfoul(?:ed|ing|s)?\b/g,
   dodge: /\bdodge(?:d|s|ing)?\b/g,
   block: /\bblock(?:ed|ing|s)?\b/g
 } as const;
@@ -27,6 +28,9 @@ export function buildTimeline(replay: ReplayModel): TimelineTurn[] {
         if (event.type === "blitz") {
           acc.blitz += 1;
         }
+        if (event.type === "foul") {
+          acc.foul += 1;
+        }
         if (event.type === "dodge") {
           acc.dodge += 1;
         }
@@ -40,6 +44,7 @@ export function buildTimeline(replay: ReplayModel): TimelineTurn[] {
         turnover: 0,
         reroll: 0,
         blitz: 0,
+        foul: 0,
         dodge: 0,
         block: 0
       }
@@ -53,6 +58,7 @@ export function buildTimeline(replay: ReplayModel): TimelineTurn[] {
         turnover: Math.max(typedCounts.turnover, countPatternMatches(combinedText, KEYWORD_PATTERNS.turnover)),
         reroll: Math.max(typedCounts.reroll, countPatternMatches(combinedText, KEYWORD_PATTERNS.reroll)),
         blitz: Math.max(typedCounts.blitz, countPatternMatches(combinedText, KEYWORD_PATTERNS.blitz)),
+        foul: Math.max(typedCounts.foul, countPatternMatches(combinedText, KEYWORD_PATTERNS.foul)),
         dodge: Math.max(typedCounts.dodge, countPatternMatches(combinedText, KEYWORD_PATTERNS.dodge)),
         block: Math.max(typedCounts.block, countPatternMatches(combinedText, KEYWORD_PATTERNS.block))
       }

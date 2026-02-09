@@ -28,10 +28,13 @@ export const ACTION_CODE_MAP: Record<number, string> = {
 };
 
 export const ROLL_TYPE_MAP: Record<number, string> = {
+  0: "no_roll",
   1: "armor",
   2: "block_dice",
   3: "dodge",
   4: "injury",
+  5: "scatter",
+  6: "bounce",
   7: "ko_recovery",
   8: "kickoff_scatter",
   9: "kickoff_event",
@@ -45,8 +48,13 @@ export const ROLL_TYPE_MAP: Record<number, string> = {
   37: "foul_injury",
   41: "regeneration",
   43: "apothecary",
+  45: "weather_or_pitch",
+  67: "special_rule",
   71: "secret_weapon",
-  73: "bombardier"
+  73: "bombardier",
+  74: "bomb_scatter",
+  87: "special_event_87",
+  88: "special_event_88"
 };
 
 export const END_TURN_REASON_MAP: Record<number, string> = {

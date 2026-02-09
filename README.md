@@ -15,9 +15,9 @@ The repository now contains a working project scaffold:
 2. Replay upload UI and `/api/replay` analysis endpoint.
 3. Initial domain modules for parsing, timeline building, heuristic analysis, and coaching text.
 4. Unit and e2e test scaffolding.
-5. CI workflow for lint, typecheck, unit tests, and build.
+5. CI workflow for lint, typecheck, unit tests, build, and Playwright e2e smoke.
 
-Analysis logic is intentionally simple in this first pass and designed to be replaced with richer Blood Bowl-specific heuristics.
+Analysis logic now includes BB3-focused starter heuristics (turnover causes, reroll timing, blitz value, foul timing, ball safety, cage/screen warnings) and is designed to keep expanding with replay evidence.
 
 ## Demo Replay
 
@@ -83,11 +83,6 @@ pnpm lint
 pnpm typecheck
 pnpm test
 pnpm build
-```
-
-Optional e2e:
-
-```bash
 pnpm test:e2e
 ```
 
@@ -101,6 +96,7 @@ pnpm test:e2e
 6. Runtime: Node.js for replay analysis endpoint.
 
 No required environment variables yet.
+This app is intentionally one-shot: upload -> analyze -> read advice -> done. No long-term replay persistence is required.
 
 ## Agent Build Guidelines
 

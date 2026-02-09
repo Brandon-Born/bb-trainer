@@ -9,6 +9,10 @@ export type DecodedReplay = {
   format: ReplayInputFormat;
 };
 
+export type DecodeReplayOptions = {
+  maxDecodedChars?: number;
+};
+
 const XML_START_PATTERN = /^<\?xml|^<Replay|^<MatchReplay|^</;
 
 function decodeCompressedBase64(input: string): string | null {
@@ -38,7 +42,7 @@ function decodeCompressedBase64(input: string): string | null {
   return null;
 }
 
-export function decodeReplayInput(input: string): DecodedReplay {
+export function decodeReplayInput(input: string, options: DecodeReplayOptions = {}): DecodedReplay {
   const raw = input.trim();
 
   if (raw.length === 0) {
@@ -46,6 +50,10 @@ export function decodeReplayInput(input: string): DecodedReplay {
   }
 
   if (XML_START_PATTERN.test(raw)) {
+    if (options.maxDecodedChars && raw.length > options.maxDecodedChars) {
+      throw new ReplayValidationError(`Replay XML is too large after decode. Max size is ${options.maxDecodedChars} characters.`);
+    }
+
     return {
       xml: raw,
       format: "xml"
@@ -58,9 +66,12 @@ export function decodeReplayInput(input: string): DecodedReplay {
     throw new ReplayValidationError("Replay input is not valid XML or supported BB3 .bbr content.");
   }
 
+  if (options.maxDecodedChars && decodedXml.length > options.maxDecodedChars) {
+    throw new ReplayValidationError(`Replay XML is too large after decode. Max size is ${options.maxDecodedChars} characters.`);
+  }
+
   return {
     xml: decodedXml,
     format: "bbr"
   };
 }
-

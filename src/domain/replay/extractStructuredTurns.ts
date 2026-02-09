@@ -184,6 +184,14 @@ function collectSequenceEvents(block: string, unknownCodeCounters: Map<string, R
       events.push({ type: "blitz", sourceLabel: "declared_blitz", ...baseEvent });
     }
 
+    if (rootTag === "ResultUseAction" && actionCode === 6) {
+      events.push({ type: "foul", sourceLabel: "declared_foul", ...baseEvent });
+    }
+
+    if (rootTag === "ResultFoulRoll" || rootTag === "ResultFoulOutcome") {
+      events.push({ type: "foul", sourceLabel: "foul_resolution", ...baseEvent });
+    }
+
     if (rootTag === "ResultRoll" && sequenceContext.stepType === 1) {
       events.push({ type: "dodge", sourceLabel: "dodge_roll", ...baseEvent });
     }

@@ -11,8 +11,10 @@ import {
 describe("replay mappings", () => {
   it("contains critical known mappings", () => {
     expect(ACTION_CODE_MAP[2]).toBe("blitz");
+    expect(ACTION_CODE_MAP[6]).toBe("foul");
     expect(STEP_TYPE_MAP[1]).toBe("dodge");
     expect(ROLL_TYPE_MAP[3]).toBe("dodge");
+    expect(ROLL_TYPE_MAP[74]).toBe("bomb_scatter");
     expect(END_TURN_REASON_MAP[2]).toBe("turnover");
   });
 

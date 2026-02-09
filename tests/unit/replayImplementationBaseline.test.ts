@@ -25,6 +25,7 @@ function decodeBase64Twice(value: string): string {
 type ReferenceCounts = {
   block: number;
   blitz: number;
+  foul: number;
   dodge: number;
   reroll: number;
   casualty: number;
@@ -35,6 +36,7 @@ function extractReferenceCounts(xml: string): ReferenceCounts {
   const counts: ReferenceCounts = {
     block: 0,
     blitz: 0,
+    foul: 0,
     dodge: 0,
     reroll: 0,
     casualty: 0,
@@ -75,6 +77,13 @@ function extractReferenceCounts(xml: string): ReferenceCounts {
         if (action === 2) {
           counts.blitz += 1;
         }
+        if (action === 6) {
+          counts.foul += 1;
+        }
+      }
+
+      if (resultTag === "ResultFoulRoll" || resultTag === "ResultFoulOutcome") {
+        counts.foul += 1;
       }
 
       if (resultTag === "ResultRoll" && stepType === 1) {
@@ -101,6 +110,7 @@ function extractParsedCounts(xml: string): ReferenceCounts {
   return {
     block: allEvents.filter((event) => event.type === "block").length,
     blitz: allEvents.filter((event) => event.type === "blitz").length,
+    foul: allEvents.filter((event) => event.type === "foul").length,
     dodge: allEvents.filter((event) => event.type === "dodge").length,
     reroll: allEvents.filter((event) => event.type === "reroll").length,
     casualty: allEvents.filter((event) => event.type === "casualty").length,
@@ -123,4 +133,3 @@ describe("replay implementation baseline", () => {
     });
   }
 });
-

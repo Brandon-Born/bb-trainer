@@ -24,14 +24,14 @@ export function renderCoaching(analysis: AnalysisResult): CoachingReport {
 
   const priorities = analysis.findings.slice(0, 5).map((finding) => {
     const turnRef = finding.turnNumber ? `Turn ${finding.turnNumber}` : "Match";
-    return `${turnRef} - ${finding.title}: ${finding.recommendation}`;
+    return `${turnRef}: ${finding.recommendation}`;
   });
 
   if (priorities.length === 0) {
     priorities.push("No major mistakes were found in this replay. Keep practicing the same safe turn order.");
   }
 
-  const turnByTurn = analysis.turnAdvice.slice(0, 32).map((advice) => ({
+  const turnByTurn = analysis.turnAdvice.slice(0, 16).map((advice) => ({
     turnNumber: advice.turnNumber,
     happened: advice.happened,
     riskyBecause: advice.riskyBecause,

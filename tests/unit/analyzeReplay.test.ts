@@ -21,6 +21,8 @@ describe("analyzeReplayXml", () => {
     });
 
     expect(report.analysis.metrics.totalTurns).toBe(2);
+    expect(report.analysis.metrics.blitzSignals).toBeGreaterThanOrEqual(0);
+    expect(report.analysis.metrics.foulSignals).toBeGreaterThanOrEqual(0);
     expect(report.coaching.priorities.length).toBeGreaterThan(0);
   });
 
@@ -33,6 +35,7 @@ describe("analyzeReplayXml", () => {
       if (turns.length > 0) {
         expect(Math.max(...turns)).toBeLessThanOrEqual(16);
       }
+      expect(["offense", "defense", "mixed"]).toContain(teamReport.analysis.context.mode);
     }
   });
 });

@@ -28,4 +28,10 @@ describe("decodeReplayInput", () => {
     expect(decoded.xml.startsWith("<Replay>")).toBe(true);
     expect(decoded.xml.length).toBeGreaterThan(100000);
   });
+
+  it("rejects decoded replays above configured max characters", () => {
+    const input = readDemoReplay();
+
+    expect(() => decodeReplayInput(input, { maxDecodedChars: 1000 })).toThrow(/too large/i);
+  });
 });

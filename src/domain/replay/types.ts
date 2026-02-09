@@ -7,6 +7,7 @@ export type ReplayTeam = {
 export type ReplayEventType =
   | "block"
   | "blitz"
+  | "foul"
   | "dodge"
   | "reroll"
   | "casualty"
@@ -70,6 +71,7 @@ export type TimelineTurn = {
     turnover: number;
     reroll: number;
     blitz: number;
+    foul: number;
     dodge: number;
     block: number;
   };

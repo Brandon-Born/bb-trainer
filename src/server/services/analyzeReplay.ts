@@ -38,6 +38,10 @@ export type ReplayAnalysisReport = {
   }>;
 };
 
+export type AnalyzeReplayOptions = {
+  maxDecodedChars?: number;
+};
+
 function buildReportId(xml: string): string {
   return createHash("sha1").update(xml).digest("hex").slice(0, 12);
 }
@@ -167,7 +171,9 @@ export function analyzeReplayXml(xml: string, format: "xml" | "bbr" = "xml"): Re
   };
 }
 
-export function analyzeReplayInput(input: string): ReplayAnalysisReport {
-  const decoded = decodeReplayInput(input);
+export function analyzeReplayInput(input: string, options: AnalyzeReplayOptions = {}): ReplayAnalysisReport {
+  const decoded = decodeReplayInput(input, {
+    maxDecodedChars: options.maxDecodedChars
+  });
   return analyzeReplayXml(decoded.xml, decoded.format);
 }

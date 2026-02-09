@@ -45,6 +45,7 @@ describe("demo replay structured extraction", () => {
       expect(timeline.length).toBe(replay.turns.length);
       expect(timeline.some((turn) => turn.keywordHits.block > 0)).toBe(true);
       expect(timeline.some((turn) => turn.keywordHits.reroll > 0)).toBe(true);
+      expect(timeline.every((turn) => Number.isFinite(turn.keywordHits.foul))).toBe(true);
     });
 
     it(`analyzes ${replayName} through service`, () => {
@@ -55,9 +56,11 @@ describe("demo replay structured extraction", () => {
       expect(report.coaching.priorities.length).toBeGreaterThan(0);
       expect(report.teamReports.length).toBeGreaterThanOrEqual(2);
       expect(report.teamReports.every((teamReport) => teamReport.analysis.metrics.totalTurns > 0)).toBe(true);
+      expect(report.teamReports.every((teamReport) => ["offense", "defense", "mixed"].includes(teamReport.analysis.context.mode))).toBe(true);
       const firstTeam = report.teamReports[0];
       expect(firstTeam).toBeDefined();
       expect(firstTeam!.coaching.turnByTurn.every((turn) => turn.turnNumber <= 16)).toBe(true);
+      expect(firstTeam!.coaching.turnByTurn.every((turn) => ["low", "medium", "high"].includes(turn.confidence))).toBe(true);
     });
   }
 
@@ -69,5 +72,15 @@ describe("demo replay structured extraction", () => {
     });
 
     expect(hasDodge).toBe(true);
+  });
+
+  it("detects foul events in at least one replay", () => {
+    const hasFoul = DEMO_REPLAYS.some((replayName) => {
+      const decoded = decodeReplayInput(readDemoReplay(replayName));
+      const replay = parseReplayXml(decoded.xml);
+      return replay.turns.some((turn) => turn.events.some((event) => event.type === "foul"));
+    });
+
+    expect(hasFoul).toBe(true);
   });
 });

@@ -20,6 +20,12 @@ type TeamReport = {
   teamId: string;
   teamName: string;
   coachName?: string;
+  analysis: {
+    context: {
+      mode: "offense" | "defense" | "mixed";
+      ballControlRate: number;
+    };
+  };
   coaching: {
     headline: string;
     priorities: string[];
@@ -120,6 +126,39 @@ export default function UploadPage() {
     }
   }
 
+  function confidenceBadgeClass(confidence: TurnRow["confidence"]): string {
+    if (confidence === "high") {
+      return "bg-red-700/80 text-red-100 border-red-300/40";
+    }
+
+    if (confidence === "medium") {
+      return "bg-amber-700/70 text-amber-100 border-amber-200/40";
+    }
+
+    return "bg-emerald-700/70 text-emerald-100 border-emerald-200/40";
+  }
+
+  function contextLabel(mode: TeamReport["analysis"]["context"]["mode"]): string {
+    if (mode === "offense") {
+      return "Mostly offense";
+    }
+
+    if (mode === "defense") {
+      return "Mostly defense";
+    }
+
+    return "Mixed drive";
+  }
+
+  function formatEvidenceItem(item: TurnRow["evidence"][number]): string {
+    const parts = [item.eventType, item.sourceTag, item.code, item.detail].filter(Boolean);
+    if (parts.length === 0) {
+      return "Replay marker";
+    }
+
+    return parts.join(" | ");
+  }
+
   return (
     <main className="bb-shell mx-auto flex min-h-screen w-full max-w-6xl flex-col gap-8 px-6 py-16">
       <section className="space-y-3">
@@ -211,6 +250,10 @@ export default function UploadPage() {
               <div>
                 <h3 className="text-lg font-semibold text-amber-100">Advice for {selectedTeamReport.teamName}</h3>
                 <p className="mt-1 text-sm text-amber-50/90">{selectedTeamReport.coaching.headline}</p>
+                <p className="mt-2 text-xs text-amber-100/85">
+                  Learning mode: {contextLabel(selectedTeamReport.analysis.context.mode)} ({Math.round(selectedTeamReport.analysis.context.ballControlRate * 100)}%
+                  ball control on your tracked turns)
+                </p>
               </div>
 
               <div>
@@ -230,8 +273,10 @@ export default function UploadPage() {
                       <tr className="border-b border-amber-300/20 text-left">
                         <th className="px-2 py-2">Turn</th>
                         <th className="px-2 py-2">What happened</th>
+                        <th className="px-2 py-2">Confidence</th>
                         <th className="px-2 py-2">Why this was risky</th>
                         <th className="px-2 py-2">Better play next time</th>
+                        <th className="px-2 py-2">Replay clues</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -239,8 +284,24 @@ export default function UploadPage() {
                         <tr key={`${turn.turnNumber}-${turn.happened}`} className="border-b border-amber-300/10 align-top" id={`turn-${turn.turnNumber}`}>
                           <td className="px-2 py-3 font-semibold">{turn.turnNumber}</td>
                           <td className="px-2 py-3">{turn.happened}</td>
+                          <td className="px-2 py-3">
+                            <span className={`inline-flex rounded-full border px-2 py-1 text-xs font-semibold uppercase ${confidenceBadgeClass(turn.confidence)}`}>
+                              {turn.confidence}
+                            </span>
+                          </td>
                           <td className="px-2 py-3">{turn.riskyBecause}</td>
                           <td className="px-2 py-3">{turn.saferAlternative}</td>
+                          <td className="px-2 py-3">
+                            {turn.evidence.length === 0 ? (
+                              <span className="text-amber-100/70">No replay clues attached</span>
+                            ) : (
+                              <ul className="list-disc space-y-1 pl-4 text-xs text-amber-100/85">
+                                {turn.evidence.slice(0, 3).map((evidence, index) => (
+                                  <li key={`${turn.turnNumber}-${index}-${evidence.sourceTag ?? "marker"}`}>{formatEvidenceItem(evidence)}</li>
+                                ))}
+                              </ul>
+                            )}
+                          </td>
                         </tr>
                       ))}
                     </tbody>
